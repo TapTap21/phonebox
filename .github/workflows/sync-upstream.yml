@@ -1,0 +1,99 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.repository == 'TapTap21/phonebox' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      upstream: ${{ steps.merge.outputs.upstream }}
+      tree: ${{ steps.merge.outputs.tree }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare candidate
+        id: merge
+        shell: bash
+        run: |
+          git fetch --no-tags https://github.com/ersinkoc/phonebox.git refs/heads/main
+          upstream=$(git rev-parse FETCH_HEAD)
+          if git merge-base --is-ancestor "$upstream" HEAD; then
+            echo 'Already synced with upstream.'
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            merge --no-ff --no-edit "$upstream"
+          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
+          echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        if: steps.merge.outputs.upstream != '' || github.event_name == 'workflow_dispatch'
+        with:
+          dotnet-version: 10.0.x
+      - name: Test Linux agent and build the installable binary
+        if: steps.merge.outputs.upstream != '' || github.event_name == 'workflow_dispatch'
+        run: |
+          dotnet test agent/PhoneBox.Agent.Tests -c Release --nologo
+          dotnet publish agent/PhoneBox.Agent -c Release -f net10.0 -r linux-x64 --self-contained true -p:PublishSingleFile=true --nologo
+      - name: Check Deye telemetry mapping
+        if: steps.merge.outputs.upstream != '' || github.event_name == 'workflow_dispatch'
+        run: |
+          python3 - <<'PY'
+          import runpy
+
+          poller = runpy.run_path("scripts/deye-phonebox.py")
+          measurements = {"SOC": "100", "GridVoltageL1L2": "237.5", "GridRelayStatus": "Pull-in", "TotalDCInputPower": "0"}
+          device = {"collectionTime": 1000, "deviceState": 1,
+                    "dataList": [{"key": key, "value": value} for key, value in measurements.items()]}
+          cards = poller["tiles"](device, 1000)
+          assert set(cards) == set(poller["TILES"])
+          assert cards["battery"]["value"] == 100
+          assert cards["voltage"]["value"] == 237.5
+          assert cards["grid"]["value"] == "Connected"
+          assert cards["solar"]["value"] == 0
+          assert poller["tiles"](device, 2000)["status"]["value"] == "Unavailable"
+          PY
+
+  publish:
+    needs: validate
+    if: needs.validate.outputs.upstream != ''
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Publish only the tested tree
+        shell: bash
+        env:
+          UPSTREAM_COMMIT: ${{ needs.validate.outputs.upstream }}
+          TESTED_TREE: ${{ needs.validate.outputs.tree }}
+        run: |
+          git fetch --no-tags origin refs/heads/main
+          if [[ $(git rev-parse FETCH_HEAD) != "$(git rev-parse HEAD)" ]]; then
+            echo '::error::Fork main changed during validation. Rerun the sync.'
+            exit 1
+          fi
+          git fetch --no-tags https://github.com/ersinkoc/phonebox.git "$UPSTREAM_COMMIT"
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            merge --no-ff --no-edit FETCH_HEAD
+          if [[ $(git rev-parse 'HEAD^{tree}') != "$TESTED_TREE" ]]; then
+            echo '::error::Merge tree differs from the validated tree.'
+            exit 1
+          fi
+          git push origin HEAD:refs/heads/main
