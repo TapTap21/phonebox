@@ -1,6 +1,7 @@
 #if !WINDOWS
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 
 namespace PhoneBox.Agent;
 
@@ -16,16 +17,89 @@ internal sealed class PortableDeckNative(
     private (long At, (string Kind, string Path)? Player)? _filePlayerCache;
     private (long At, (string Kind, string Path)? Player)? _streamPlayerCache;
 
-    public DeckAudio Audio() => audio.Snapshot() is { } a ? new(true, null,
-        [new("default", "System output", "output", true, a.Volume, a.Muted, 0, 1, a.CanControl)], [])
-        : new(false, "Audio backend is unavailable", [], []);
+    public DeckAudio Audio()
+    {
+        var master = audio.Snapshot();
+        var sessions = OperatingSystem.IsLinux() ? ReadPlaybackStreams() : null;
+        if (master is null && sessions is null) return new(false, "Audio backend is unavailable", [], []);
+        IReadOnlyList<DeckDevice> devices = master is { } a
+            ? [new("default", "System output", "output", true, a.Volume, a.Muted, 0, 1, a.CanControl)]
+            : [];
+        return new(true, null, devices, sessions ?? []);
+    }
+
+    // PulseAudio and PipeWire's PulseAudio server both expose playback streams as sink inputs.
+    private static IReadOnlyList<DeckSession>? ReadPlaybackStreams()
+    {
+        var output = Sh.Run("pactl", "--format=json", "list", "sink-inputs");
+        if (output is null) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(output);
+            if (document.RootElement.ValueKind != JsonValueKind.Array) return null;
+            var sessions = new List<DeckSession>();
+            foreach (var stream in document.RootElement.EnumerateArray())
+            {
+                if (stream.ValueKind != JsonValueKind.Object ||
+                    !stream.TryGetProperty("index", out var index) || index.ValueKind != JsonValueKind.Number ||
+                    !index.TryGetUInt32(out var streamId) ||
+                    !stream.TryGetProperty("volume", out var volume) || volume.ValueKind != JsonValueKind.Object ||
+                    !stream.TryGetProperty("mute", out var muted) ||
+                    muted.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) continue;
+
+                uint? loudest = null;
+                foreach (var channel in volume.EnumerateObject())
+                    if (channel.Value.ValueKind == JsonValueKind.Object &&
+                        channel.Value.TryGetProperty("value", out var value) && value.ValueKind == JsonValueKind.Number &&
+                        value.TryGetUInt32(out var raw))
+                        loudest = Math.Max(loudest ?? 0, raw);
+                if (loudest is null) continue;
+
+                stream.TryGetProperty("properties", out var properties);
+                // PipeWire can expose internal streams that ignore both volume and mute writes.
+                if (StreamProperty(properties, "channelmix.lock-volumes") == "true") continue;
+                var binary = StreamProperty(properties, "application.process.binary");
+                var name = StreamProperty(properties, "application.name") ?? binary ??
+                    StreamProperty(properties, "media.name") ?? "Application";
+                // On this machine Spotifast's Soloist filter exposes the controllable playback stream.
+                if (name == "Soloist output" &&
+                    StreamProperty(properties, "node.name")?.StartsWith("spotifast.soloist.", StringComparison.Ordinal) == true)
+                    name = "Spotifast";
+                var pid = int.TryParse(StreamProperty(properties, "application.process.id"), out var processId)
+                    ? processId : -1;
+                var sinkId = stream.TryGetProperty("sink", out var sink) && sink.ValueKind == JsonValueKind.Number
+                    ? "pulse:" + sink.GetRawText() : "";
+                var level = (int)Math.Round(loudest.Value * 100.0 / 65536); // PA_VOLUME_NORM
+                // Corked streams can resume on the same slider, for example when a player is paused.
+                sessions.Add(new($"pulse:{streamId}", name, pid, sinkId, level, muted.GetBoolean(), 0, binary, true));
+            }
+            return sessions;
+        }
+        catch (JsonException) { return null; }
+    }
+
+    private static string? StreamProperty(JsonElement properties, string key) =>
+        properties.ValueKind == JsonValueKind.Object && properties.TryGetProperty(key, out var property) &&
+        property.ValueKind == JsonValueKind.String && property.GetString() is { } value && !string.IsNullOrWhiteSpace(value)
+            ? value : null;
+
     public bool Device(string id, int? volume, bool? muted, int? channel = null)
     {
         if (id != "default" || channel is not null || audio.Current() is not { CanControl: true } current) return false;
         if (volume is { } v && !audio.SetVolume(v)) return false;
         return muted is not { } m || m == current.Muted || audio.ToggleMute();
     }
-    public bool Session(string id, int? volume, bool? muted) => false;
+    public bool Session(string id, int? volume, bool? muted)
+    {
+        const string prefix = "pulse:";
+        if (!OperatingSystem.IsLinux() || volume is < 0 or > 100 || (volume is null && muted is null) ||
+            !id.StartsWith(prefix, StringComparison.Ordinal) ||
+            !uint.TryParse(id.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var streamId))
+            return false;
+        var target = streamId.ToString(CultureInfo.InvariantCulture);
+        if (volume is { } level && Sh.Run("pactl", "set-sink-input-volume", target, $"{level}%") is null) return false;
+        return muted is not { } mute || Sh.Run("pactl", "set-sink-input-mute", target, mute ? "1" : "0") is not null;
+    }
     public bool DefaultDevice(string id, int? role = null) => false;
     public IReadOnlyList<DeckMonitor> Monitors() => [];
     public bool Brightness(string id, int value) => false;
