@@ -200,6 +200,10 @@ public sealed class DisplayConfig
     public bool PixelShift { get; set; }
     /// <summary>The page dots and the permission prompt's Allow / Deny buttons at the top, for a panel whose bottom edge is hard to reach.</summary>
     public bool ControlsTop { get; set; }
+    /// <summary>How the panel shows its pages: dots, auto (a bar with each page's icon and name while the dots are used) or bar (always, with its own strip of the screen).</summary>
+    public string PageBar { get; set; } = "dots";
+    /// <summary>Where the page bar goes: bottom (the top with <see cref="ControlsTop"/>), left or right.</summary>
+    public string PageBarSide { get; set; } = "bottom";
     /// <summary>OLED burn-in protection: dim the panel after this many minutes without a touch; 0 = never.</summary>
     public int IdleDimMin { get; set; }
     /// <summary>Screen pinning: Home and Recents stay on the panel.</summary>
@@ -409,6 +413,23 @@ public sealed class DiscordConfig
     public bool Enabled { get; set; }
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }
+    /// <summary>
+    /// Allow mute, deafen, leave and join through <c>/api/discord/{action}</c> without a Discord widget: for shortcuts,
+    /// scripts and custom widgets. Off by default; then only a Discord widget with its <c>control</c> option on, on an
+    /// enabled page, allows them.
+    /// </summary>
+    public bool AllowControl { get; set; }
+    /// <summary>
+    /// Screen share from the phone (off by default). Asks Discord for rpc.screenshare.read / .write, so Discord asks to
+    /// approve PhoneBox again; lists the apps with a window (names only) while the share view is open on the phone.
+    /// </summary>
+    public bool ScreenShare { get; set; }
+    /// <summary>
+    /// The Discord widget's chat (read-only) and new-message dots: asks Discord for the <c>messages.read</c> scope (one
+    /// more approval in Discord) and sends message text to the phone. Off by default. Message text stays in the agent's
+    /// memory only, for as long as the connection to Discord lasts.
+    /// </summary>
+    public bool Chat { get; set; }
 }
 
 public sealed class SteamConfig
@@ -625,9 +646,16 @@ public sealed partial class ConfigStore(string path)
         foreach (var action in c.Controls.Actions) { action.Target ??= ""; action.Kind ??= "shortcut"; action.Label ??= action.Id; }
         c.Controls.Profiles = c.Controls.Profiles.Where(p => p is not null && !string.IsNullOrWhiteSpace(p.Id)).DistinctBy(p => p.Id).Take(128).ToList();
         foreach (var profile in c.Controls.Profiles) { profile.Levels = (profile.Levels ?? []).Where(l => l is not null).Take(512).ToList(); profile.Defaults ??= []; profile.Actions = (profile.Actions ?? []).Where(a => !string.IsNullOrEmpty(a)).Take(64).ToList(); profile.Label ??= profile.Id; }
+        c.Controls.PlexUrl = PlexControl.NormalizeUrl(c.Controls.PlexUrl);
+        c.Controls.PlexPlayerUrl = PlexControl.NormalizeUrl(c.Controls.PlexPlayerUrl) ?? PlexControl.DefaultPlayerUrl;
+        // a control character (a stray newline from a paste) can't be part of a token, and would break the request header
+        c.Controls.PlexToken = new string((c.Controls.PlexToken ?? "").Where(ch => !char.IsControl(ch)).ToArray()).Trim() is { Length: > 0 } plexToken
+            ? Cap(plexToken, 256) : null;
         c.Display ??= new();
         c.Display.Appearance?.Normalize();
         c.Display.Hour12 = Hour12JsonConverter.Normalize(c.Display.Hour12);
+        c.Display.PageBar = c.Display.PageBar is "dots" or "auto" or "bar" ? c.Display.PageBar : "dots";
+        c.Display.PageBarSide = c.Display.PageBarSide is "bottom" or "left" or "right" ? c.Display.PageBarSide : "bottom";
         c.Display.IdleReturnSec = Math.Clamp(c.Display.IdleReturnSec, 0, 3600);
         c.Display.IdleDimMin = Math.Clamp(c.Display.IdleDimMin, 0, 1440);
         c.Display.UnreachableNightDelayMin = Math.Clamp(c.Display.UnreachableNightDelayMin, 1, 30);

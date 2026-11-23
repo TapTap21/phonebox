@@ -182,6 +182,10 @@ public sealed class MediaMonitor(ILogger<MediaMonitor> log) : BackgroundService
                 "com.apple.Music" => "Music",
                 "com.spotify.client" => "Spotify",
                 "com.github.th-ch.youtube-music" => "YouTube Music",
+                // YouTube Music installed as a Chrome app (PWA): the ID is the same on every Mac
+                "com.google.Chrome.app.cinhimbnkkaeohfgghhklpknlkffjgod" => "YouTube Music",
+                // any other Chrome app would otherwise show its 32-letter ID
+                _ when bundle.StartsWith("com.google.Chrome.app.", StringComparison.Ordinal) => "Chrome",
                 _ => string.IsNullOrEmpty(bundle) ? "Mac" : bundle.Split('.').Last(),
             };
             var sourceKey = bundle + "\n" + title;
@@ -457,8 +461,23 @@ public sealed class MediaMonitor(ILogger<MediaMonitor> log) : BackgroundService
         return null;
     }
 
+    // The extension is what keeps a player from making the agent read any file it names. Chromium-based browsers
+    // write the art to a base::CreateTemporaryFile file, ".org.chromium.Chromium.XXXXXX" (".com.google.Chrome.XXXXXX"
+    // in Google Chrome), whose six random letters and digits only look like an extension; exactly that name is let
+    // through. The bytes must still be an image (SniffImageMime).
     private static bool HasAllowedArtExtension(string path) =>
-        Path.GetExtension(path).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif";
+        IsChromiumTempName(Path.GetFileName(path))
+        || Path.GetExtension(path).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif";
+
+    private static bool IsChromiumTempName(string name)
+    {
+        var prefix = name.StartsWith(".org.chromium.Chromium.", StringComparison.Ordinal) ? ".org.chromium.Chromium.".Length
+            : name.StartsWith(".com.google.Chrome.", StringComparison.Ordinal) ? ".com.google.Chrome.".Length : -1;
+        return prefix > 0 && name.Length == prefix + 6 && name.AsSpan(prefix).IndexOfAnyExcept(TempNameChars) < 0;
+    }
+
+    private static readonly System.Buffers.SearchValues<char> TempNameChars =
+        System.Buffers.SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
 
     /// <summary>
     /// The body of a cover art URL, or null when the server refuses it or it is larger than <see cref="MaxArtBytes"/>.

@@ -173,6 +173,8 @@ public sealed class MacMediaTests
     [Theory]
     [InlineData("com.spotify.client", "Spotify")]
     [InlineData("com.github.th-ch.youtube-music", "YouTube Music")]
+    [InlineData("com.google.Chrome.app.cinhimbnkkaeohfgghhklpknlkffjgod", "YouTube Music")]
+    [InlineData("com.google.Chrome.app.agimnkijcaahngcdmfeangaknmldooml", "Chrome")]
     [InlineData("org.example.player", "player")]
     public void KnownPlayersAreNamedAfterTheirBundle(string bundle, string expected)
     {
@@ -231,6 +233,34 @@ public sealed class MacMediaTests
             var loaded = await InvokeLoadArt(new Uri(validPng).AbsoluteUri);
             Assert.NotNull(loaded);
             Assert.Equal("image/png", loaded.Mime);
+
+            // Chromium / Brave on Linux write the art to a temp file whose random suffix looks like an extension
+            var chromiumPng = Path.Combine(dir, ".org.chromium.Chromium.Wa6XAo");
+            File.WriteAllBytes(chromiumPng, [0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+            var loadedChromium = await InvokeLoadArt(new Uri(chromiumPng).AbsoluteUri);
+            Assert.NotNull(loadedChromium);
+            Assert.Equal("image/png", loadedChromium.Mime);
+
+            var chromePng = Path.Combine(dir, ".com.google.Chrome.x9Q2bZ");
+            File.WriteAllBytes(chromePng, [0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+            Assert.Equal("image/png", (await InvokeLoadArt(new Uri(chromePng).AbsoluteUri))?.Mime);
+
+            // only the temp file name itself: six letters or digits after the prefix, nothing more
+            foreach (var other in new[] { ".org.chromium.Chromium.private", ".org.chromium.Chromium.Wa6XA", ".org.chromium.Chromium.Wa6-Ao" })
+            {
+                var near = Path.Combine(dir, other);
+                File.WriteAllBytes(near, [0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+                Assert.Null(await InvokeLoadArt(new Uri(near).AbsoluteUri));
+            }
+
+            var chromiumText = Path.Combine(dir, ".org.chromium.Chromium.tmp123");
+            File.WriteAllText(chromiumText, "plain text not an image");
+            Assert.Null(await InvokeLoadArt(new Uri(chromiumText).AbsoluteUri));
+
+            // any other name without an image extension stays refused, even with image bytes
+            var extensionlessPng = Path.Combine(dir, "extensionless-png");
+            File.WriteAllBytes(extensionlessPng, [0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+            Assert.Null(await InvokeLoadArt(new Uri(extensionlessPng).AbsoluteUri));
 
             var secretJson = Path.Combine(dir, "config.json");
             File.WriteAllText(secretJson, "{\"token\":\"secret\"}");

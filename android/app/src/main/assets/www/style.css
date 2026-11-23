@@ -106,9 +106,75 @@ button { font: inherit; color: inherit; background: none; border: 0; }
 /* ---------- dots, page title, overview ---------- */
 #dots {
   position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 7px; padding: 5px 10px 5px 14px; z-index: 6;
+  display: flex; align-items: center; gap: 0; padding: 0 10px 0 4px; z-index: 6;
+  max-width: calc(100vw - 16px);
   border-radius: 999px; border: 1px solid transparent;
+  touch-action: none; /* a slide along the dots picks a page instead of scrolling */
 }
+/* the dot stays small; the button around it is the size of a fingertip, and shrinks when there are many pages */
+#dots .dot {
+  /* --n is the number of pages: 24 px each while they fit, narrower when there are many */
+  display: inline-flex; align-items: center; justify-content: center; flex: none; width: clamp(10px, calc((100vw - 96px) / var(--n, 8)), 24px); height: 22px;
+  padding: 0; border: none; background: transparent; cursor: pointer; outline: none; touch-action: none;
+}
+#dots .dot:focus-visible i { box-shadow: 0 0 0 1.5px var(--accent, #fff); }
+#dots .dot.aim i { background: rgba(255, 255, 255, 0.9); transform: scale(1.5); }
+#dots i { transition: width .25s, background .25s, transform .15s; }
+/* the page bar (Settings › Display › Page navigation): the same buttons with the page's icon and name */
+#dots .dot-ic, #dots .dot-nm { display: none; }
+#dots.pagebar {
+  gap: 4px; padding: 4px; border-color: var(--line); background: rgba(14, 17, 22, 0.94);
+  border-radius: 16px; bottom: 6px; max-width: calc(100vw - 12px); overflow: hidden;
+}
+#dots.pagebar .dot {
+  width: auto; height: 40px; min-width: 0; max-width: 140px; flex: 0 1 auto; gap: 6px; padding: 0 12px;
+  border-radius: 12px; color: var(--muted); font: inherit;
+}
+#dots.pagebar .dot i { display: none; }
+#dots.pagebar .dot-ic { display: inline-flex; align-items: center; font-size: 18px; line-height: 1; }
+#dots.pagebar .dot-ic svg { width: 18px; height: 18px; }
+#dots.pagebar .dot-nm { display: block; min-width: 0; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#dots.pagebar .dot.on { color: var(--text); background: color-mix(in srgb, var(--accent, #2dd4bf) 22%, transparent); }
+#dots.pagebar .dot.aim, #dots.pagebar .dot:focus-visible { box-shadow: inset 0 0 0 1.5px var(--accent, #fff); }
+#dots.pagebar .page-all, #dots.pagebar .page-pause { min-width: 32px; min-height: 40px; margin: 0; }
+#dots.pagebar .page-all svg, #dots.pagebar .page-pause svg { width: 13px; height: 13px; }
+body.controls-top #dots.pagebar:not(.pb-vertical) { bottom: auto; top: 6px; }
+/* down the left or right edge: icon above a short name */
+#dots.pagebar.pb-vertical {
+  flex-direction: column; top: 50%; bottom: auto; left: 6px; right: auto; transform: translateY(-50%);
+  max-width: none; max-height: calc(100vh - 12px);
+}
+body.pagebar-right #dots.pagebar.pb-vertical { left: auto; right: 6px; }
+#dots.pagebar.pb-vertical .dot { flex-direction: column; justify-content: center; width: 64px; height: auto; min-height: 40px; padding: 6px 4px; gap: 3px; flex: 0 1 auto; }
+#dots.pagebar.pb-vertical .dot-nm { max-width: 58px; font-size: 10.5px; }
+/* always shown: the bar gets its own strip of the screen and the pages the rest */
+body.pagebar-docked { --pb-h: 52px; --pb-w: 76px; }
+body.pagebar-docked:not(.pagebar-left):not(.pagebar-right) #pager,
+body.pagebar-docked:not(.pagebar-left):not(.pagebar-right) .page { height: calc(100vh - var(--pb-h)); }
+body.pagebar-docked:not(.pagebar-left):not(.pagebar-right) .page { padding-bottom: 10px; }
+body.pagebar-docked.controls-top:not(.pagebar-left):not(.pagebar-right) #pager { margin-top: var(--pb-h); }
+body.pagebar-docked #dots.pagebar:not(.pb-vertical) {
+  left: 0; right: 0; bottom: 0; transform: none; max-width: none; height: var(--pb-h); justify-content: center;
+  border-radius: 0; border-width: 1px 0 0; padding: 0 8px;
+}
+body.pagebar-docked.controls-top #dots.pagebar:not(.pb-vertical) { top: 0; bottom: auto; border-width: 0 0 1px; }
+body.pagebar-docked.pagebar-left #pager { margin-left: var(--pb-w); }
+body.pagebar-docked.pagebar-left #pager, body.pagebar-docked.pagebar-right #pager { width: calc(100vw - var(--pb-w)); }
+body.pagebar-docked.pagebar-left .page, body.pagebar-docked.pagebar-right .page { flex-basis: calc(100vw - var(--pb-w)); padding-bottom: 10px; }
+body.pagebar-docked #dots.pagebar.pb-vertical {
+  top: 0; bottom: 0; transform: none; max-height: none; width: var(--pb-w); justify-content: center; overflow-y: auto;
+  border-radius: 0; left: 0; border-width: 0 1px 0 0;
+}
+body.pagebar-docked.pagebar-right #dots.pagebar.pb-vertical { left: auto; right: 0; border-width: 0 0 0 1px; }
+.page-all {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: rgba(255, 255, 255, 0.5);
+  padding: 3px 5px; margin: 0 2px 0 4px; min-width: 22px; min-height: 22px;
+  border-radius: 999px; cursor: pointer; outline: none; touch-action: manipulation;
+}
+.page-all svg { width: 10px; height: 10px; fill: currentColor; pointer-events: none; }
+.page-all:hover { color: rgba(255, 255, 255, 0.9); }
+.page-all:focus-visible { box-shadow: 0 0 0 1.5px var(--accent, #fff); }
 #dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); transition: width .25s, background .25s; }
 #dots i.on { width: 16px; background: rgba(255, 255, 255, 0.7); }
 #dots.paused { border-color: rgba(245, 158, 11, 0.55); background: rgba(20, 16, 8, 0.78); }
@@ -672,6 +738,19 @@ html.beat-3 .sess.busy .st, html.beat-4 .sess.shell .st, html.beat-2 .sess.waiti
 }
 .note-t { white-space: pre-wrap; font-size: clamp(11px, calc(var(--nf) * 1cqmin), 44px); line-height: 1.3; color: color-mix(in srgb, var(--n) 25%, #fff); overflow: hidden; height: 100%; }
 .w-label { display: flex; align-items: center; padding: 0 4px; }
+.w-pagebuttons { display: flex; flex-direction: column; gap: 4px; }
+.pgb { flex: 1; min-height: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 56px), 1fr)); grid-auto-rows: minmax(0, 1fr); container-type: size; }
+.pgb-b {
+  display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 28px; padding: 4px 8px;
+  border-radius: clamp(10px, 7cqmin, 16px); border: 1px solid var(--line); background: var(--card); color: var(--text);
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; touch-action: manipulation; container-type: inline-size;
+}
+.pgb-b.on { border-color: color-mix(in srgb, var(--accent, #fff) 70%, transparent); background: color-mix(in srgb, var(--accent, #2dd4bf) 18%, transparent); }
+.pgb-b:active { transform: scale(0.97); }
+.pgb-i { font-size: 18px; line-height: 1; }
+.pgb-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a narrow button keeps its icon only (when it has one) */
+@container (max-width: 84px) { .pgb-i + .pgb-t { display: none; } }
 .lbl-t { font-size: min(55cqh, 12cqw); font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- command ---------- */
@@ -821,6 +900,40 @@ html.beat-4 .obs-pill.on .obs-led { box-shadow: 0 0 34px rgba(239, 68, 68, .9); 
 .dc-btn.busy, .dc-chan.busy { opacity: .55; }
 .dc-btn.mode.on { background: rgba(245, 158, 11, .2); border-color: rgba(245, 158, 11, .5); }
 .dc-warn { font-size: 12px; color: #fbbf24; padding: 4px 8px; border-left: 3px solid #f59e0b; background: rgba(245, 158, 11, .08); border-radius: 6px; }
+/* screen share: 🖥️ in the top row, then Discord's picker, the running apps, or Stop */
+.dc-btn.share.on { background: rgba(88, 101, 242, .28); border-color: rgba(88, 101, 242, .6); }
+.dc-share { flex: none; border: none; border-radius: 12px; background: #5865f2; color: #fff; font: inherit; font-weight: 700; padding: 10px; }
+.dc-share.stop { background: #da373c; }
+.dc-share:disabled, .dc-app:disabled { opacity: .4; }
+.dc-share.busy, .dc-app.busy { opacity: .55; }
+.dc-sharing { flex: none; font-size: 13px; font-weight: 600; color: #23a55a; }
+.dc-hint { flex: none; font-size: 11px; color: var(--muted); }
+.dc-apps { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.dc-app { flex: none; border: none; background: rgba(255, 255, 255, .06); color: var(--text); border-radius: 9px; font: inherit; font-size: 13px; padding: 8px 10px; text-align: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* chat (read-only): 💬 in the top row, then a channel picker and the messages */
+.dc-btn.chat { position: relative; }
+.dc-btn.chat.on { background: rgba(88, 101, 242, .28); border-color: rgba(88, 101, 242, .6); }
+.dc-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #f23f43; flex: none; }
+.dc-btn.chat .dc-dot { position: absolute; top: 2px; right: 2px; }
+.dc-chatbar { display: flex; gap: 6px; align-items: center; flex: none; }
+.dc-pick { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .05); color: var(--text); border-radius: 10px; font: inherit; font-size: 13px; font-weight: 600; padding: 5px 9px; text-align: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-pick small { color: var(--muted); font-weight: 400; font-size: 11px; }
+.dc-open { flex: none; border: 1px solid rgba(88, 101, 242, .6); background: rgba(88, 101, 242, .3); color: var(--text); border-radius: 10px; font-size: 16px; padding: 4px 10px; }
+.dc-picklist { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.dc-pickrow { flex: none; display: flex; align-items: center; gap: 8px; border: none; background: rgba(255, 255, 255, .05); color: var(--text); border-radius: 9px; font: inherit; font-size: 13px; padding: 7px 9px; text-align: start; min-width: 0; }
+.dc-pickrow.cur { background: rgba(35, 165, 90, .3); font-weight: 600; }
+.dc-pickrow.back { background: none; color: var(--muted); font-weight: 600; }
+.dc-pickrow .dc-pname { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-pickrow small { color: var(--muted); }
+.dc-msgs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.dc-msg { flex: none; display: flex; gap: 7px; padding: 3px 2px; }
+.dc-msg.cont { padding-top: 0; }
+.dc-msg .dc-ico, .dc-msgav { width: 26px; height: 26px; font-size: 11px; flex: none; }
+.dc-msgb { min-width: 0; flex: 1; }
+.dc-who { font-size: 12px; font-weight: 700; }
+.dc-who small { color: var(--muted); font-weight: 400; font-size: 10px; margin-inline-start: 6px; }
+.dc-msgtext { font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dc-extra { font-size: 11px; color: var(--muted); }
 .dc-members { display: flex; flex-wrap: wrap; gap: 5px; }
 .dc-member { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(88, 101, 242, .22); }
 .dc-member.muted, .dc-member.deaf { background: rgba(255, 255, 255, .07); color: var(--muted); }
@@ -852,10 +965,41 @@ html.beat-4 .obs-pill.on .obs-led { box-shadow: 0 0 34px rgba(239, 68, 68, .9); 
 .dc-chans { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
 .dc-chan { display: flex; flex-direction: column; align-items: flex-start; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .05); color: var(--text); border-radius: 10px; font: inherit; font-size: 13px; padding: 5px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dc-chan.cur { background: rgba(88, 101, 242, .28); border-color: rgba(88, 101, 242, .6); font-weight: 600; }
+/* favourites: the ★ bar above the servers, stars beside a server or channel while choosing */
+.dc-favbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.dc-favhint { flex: 1; font-size: 11px; color: var(--muted); }
+.dc-favbtn { border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .05); color: var(--text); border-radius: 999px; font: inherit; font-size: 12px; padding: 3px 10px; }
+.dc-favbtn.on { background: rgba(35, 165, 90, .25); border-color: rgba(35, 165, 90, .6); }
+.dc-headrow { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.dc-gone { flex: none; display: flex; flex-direction: column; gap: 4px; }
+.dc-goneid { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.dc-goneid small { color: var(--muted); }
+.dc-headrow > .dc-server, .dc-headrow > .dc-chan { flex: 1; min-width: 0; }
+.dc-star { flex: none; border: none; background: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 4px; }
+.dc-star.on { color: #f0b232; }
+.dc-block.editing:not(.open) { flex-basis: 120px; }
+/* who is in a favourite server's voice channel */
+.dc-room { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dc-room > .dc-chan { width: 100%; }
+.dc-people { display: flex; flex-wrap: wrap; gap: 3px 8px; padding: 0 4px; }
+.dc-person { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-person .dc-ico { width: 16px; height: 16px; font-size: 9px; }
+.dc-invoice { color: #3ba55d; }
 .dc-notes { display: flex; flex-direction: column; gap: 4px; overflow: hidden; min-height: 0; }
 .dc-note { display: flex; flex-direction: column; font-size: 12px; padding: 4px 8px; border-left: 3px solid #5865f2; background: rgba(255, 255, 255, .04); border-radius: 6px; }
 .dc-note span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-discord { padding: 9px 10px; display: flex; flex-direction: column; gap: 8px; }
+/* a large Discord widget grows its buttons, names and avatars with it, for a phone on a stand at desk distance (#420);
+   at the usual sizes each clamp stays at its minimum, the size given above */
+.w-discord .dc-where { font-size: clamp(16px, min(6cqmin, 3.4cqw), 26px); }
+/* the buttons share the top row with the channel name, so the widget's width limits them too */
+.w-discord .dc-btn { font-size: clamp(18px, min(6.5cqmin, 4cqw), 30px); padding: clamp(5px, min(1.6cqmin, 1cqw), 9px) clamp(9px, min(2.8cqmin, 1.7cqw), 15px); border-radius: clamp(10px, 3cqmin, 14px); }
+.w-discord .dc-members { gap: clamp(5px, 1.5cqmin, 10px); }
+.w-discord .dc-member { font-size: clamp(12px, 4.2cqmin, 20px); padding: clamp(3px, 1cqmin, 6px) clamp(8px, 2.4cqmin, 14px); gap: clamp(5px, 1.5cqmin, 9px); }
+.w-discord .dc-member .dc-ico { width: clamp(18px, 6.5cqmin, 34px); height: clamp(18px, 6.5cqmin, 34px); font-size: clamp(10px, 3.2cqmin, 16px); }
+.w-discord .dc-who { font-size: clamp(12px, 3.6cqmin, 17px); }
+.w-discord .dc-msgtext { font-size: clamp(13px, 4cqmin, 19px); }
+.w-discord .dc-msg .dc-ico, .w-discord .dc-msgav { width: clamp(26px, 7cqmin, 40px); height: clamp(26px, 7cqmin, 40px); font-size: clamp(11px, 3cqmin, 16px); }
 .w-steam { padding: 9px 12px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
 .w-steam .w-title { color: #79a9e8; }
 .st-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1393,3 +1537,19 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
   .sl-tile.armed .sl-status { display: block; position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font-size: 9px;
     white-space: normal; background: rgba(0, 0, 0, .7); padding: 2px; }
 }
+/* Lyrics (widgets/lyrics.js): timed lines follow the song, the current one lit in the middle */
+.w-lyrics { padding: 9px 12px 6px; display: flex; flex-direction: column; gap: 6px; }
+.w-lyrics .w-title { color: rgb(var(--ambient)); }
+.ly-list { position: relative; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; scroll-behavior: smooth;
+  -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); }
+.ly-list::-webkit-scrollbar { display: none; }
+.w-lyrics.timed .ly-list { padding: 40cqh 0; }
+.ly-line { font-size: clamp(13px, 9cqh, 26px); font-weight: 700; line-height: 1.35; padding: 3px 0; color: rgba(255, 255, 255, .32); transition: color .35s, transform .35s; transform-origin: left center; }
+.ly-line.past { color: rgba(255, 255, 255, .2); }
+.ly-line.now { color: var(--text); transform: scale(1.04); }
+.ly-line.gap { color: rgba(255, 255, 255, .18); }
+.w-lyrics.plain .ly-line { color: var(--text); font-weight: 500; font-size: clamp(12px, 6.5cqh, 18px); }
+.ly-note { font-size: 12px; color: var(--muted); text-align: center; }
+.ly-note[hidden] { display: none; }
+.w-lyrics:not(.timed):not(.plain) .ly-note { margin: auto; }
+.ly-credit { position: absolute; right: 10px; top: 9px; font-size: 9px; letter-spacing: .1em; color: var(--dim); }

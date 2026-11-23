@@ -75,7 +75,7 @@ keeps the screen on.
 |---|---|
 | **Time** | Clock (with status line and weather) · Analog clock (any time zone) · **Word clock** · World clocks · Calendar · **Next up** · Time progress (day / week / month / year) · Countdown · Pomodoro · Quick timer · Stopwatch |
 | **Weather & sky** | Weather · Forecast (hourly / 7 days) · Sun & moon (daylight left, UV, moon phase) · **Moon** · Air quality (European AQI, PM2.5, PM10, O₃, NO₂) |
-| **Computer** | **Rules** (which hold, pause) · **Battery care** · On air (microphone / camera / OBS) · OBS Studio (live, recording, scenes) · **Dictation** (speak on the phone, typed on the PC; the app asks for the microphone on first use) · **App console** (Windows: keys and a dial for the app in front, set per app in Settings › General; use the focused app's process name from Task Manager's Details tab; packaged Store apps can all show up as `ApplicationFrameHost` and terminal tabs as `WindowsTerminal`, so a profile for those names covers all of them) · Device batteries (headphones, mice, keyboards) · Docker / Podman (containers, start / stop) · Metric tile · Gauge · Chart · GPU details · Memory & disks · Top processes · Processes · Now playing · Radio · Volume · **Spectrum bars** (Windows: a live spectrum of what the PC is playing, like the classic LED bar visualizers) · Shortcut grid · Big button (optionally filled with the shortcut's uploaded picture) · **Command** (PowerShell / bash / zsh output, refreshed every N seconds) · **Trackpad** (control PC cursor, tap to click, hold to drag, scroll) |
+| **Computer** | **Rules** (which hold, pause) · **Battery care** · On air (microphone / camera / OBS) · OBS Studio (live, recording, scenes) · **Dictation** (speak on the phone, typed on the PC; the app asks for the microphone on first use) · **App console** (Windows: keys and a dial for the app in front, set per app in Settings › General; use the focused app's process name from Task Manager's Details tab; packaged Store apps can all show up as `ApplicationFrameHost` and terminal tabs as `WindowsTerminal`, so a profile for those names covers all of them) · **Steam library** (installed games with covers, most recently played first; starting a game only when the widget allows it) · Device batteries (headphones, mice, keyboards) · Docker / Podman (containers, start / stop) · Metric tile · Gauge · Chart · GPU details · Memory & disks · Top processes · Processes · Now playing · Radio · Volume · **Spectrum bars** (Windows: a live spectrum of what the PC is playing, like the classic LED bar visualizers) · Shortcut grid · Big button (optionally filled with the shortcut's uploaded picture) · **Command** (PowerShell / bash / zsh output, refreshed every N seconds) · **Trackpad** (control PC cursor, tap to click, hold to drag, scroll) |
 | **AI & code** | AI quotas · Quota ring · AI sessions (Claude Code, Codex, Cursor, OpenCode, Antigravity) · GitHub |
 | **Personal** | **Agenda** (Google / Outlook / iCloud calendars) · Note (edit it from the phone) · Checklist (resets daily) · Counter · Breathe · Quote · Title · Phone battery · **Computers** (switch between paired computers) · **Photo frame** (a slideshow from a photo folder on the PC or an Immich album) |
 | **Web & data** | **Custom HTML** (your own widget, sandboxed) · **Home Assistant** (entities with their own name and icon, tap to switch) · **Pushed value** · **Notifications** (both fed by [webhooks](#webhooks)) · **News feeds** (RSS and Atom feeds with categories, OPML/bulk import, and category filtering; with its "Open articles on the PC" option, a tap opens the article on the PC) · Hacker News · Exchange rates (ECB) · Crypto prices · Image / webcam · **Camera** (a live picture from an IP camera over RTSP, pulled by ffmpeg on the PC) |
@@ -170,6 +170,21 @@ failures retain the last measurements with an error.
 
 Tap an AI session to see its model, timing and token details. Token counters describe the local session rather than
 the account allowance. Prompt/response text and tool arguments are not included in this panel data.
+
+## Synced lyrics
+
+The **Synced lyrics** widget shows the words of the song playing on the computer, the sung line lit and kept in the
+middle, from [LRCLIB](https://lrclib.net), a free and open lyrics database. It isn't tied to Spotify: it uses the track
+the agent shows in Now playing (title, artist, album, length and position), whichever player reports it.
+
+Nothing is looked up until you turn on the widget's **Look up lyrics on LRCLIB** (off by default); each widget has its
+own switch. Then the agent (never the phone) asks LRCLIB once per song, only for a widget with the option on while it
+is on an enabled page, and sends the title, artist, album and length, nothing about you. Answers stay in memory, never on disk; after a failure the agent
+leaves LRCLIB alone for a while (1 minute, doubling up to 30, or as long as LRCLIB asks).
+
+Songs without timed lyrics show their plain lyrics, unless you turn that off. A player that reports no position (no
+timeline in Now playing) gets the words as a page, with a note that the lines can't follow the song. *Timing offset*
+moves the lines earlier (positive) or later when a song's timing is off.
 
 ## Layout editor & settings
 

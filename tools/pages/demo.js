@@ -58,9 +58,11 @@
         action('web', 'Web dev server', 'server', 'npm run dev'), action('api', 'API dev server', 'server', 'dotnet watch'),
         action('meet-mic', 'Mute in meeting', 'meeting', 'Ctrl+D'), action('meet-cam', 'Camera', 'meeting', 'Ctrl+E'), action('meet-hand', 'Raise hand', 'meeting', 'Ctrl+Alt+H'),
         action('chime', 'Chime', 'sound', 'chime.wav', 75), action('applause', 'Applause', 'sound', 'applause.wav', 75),
+        action('plex-chill', 'Chill', 'plex-playlist', '12'), action('plex-focus', 'Focus', 'plex-playlist', '13'),
       ], profiles: [{ id: 'meeting', label: 'Meeting', levels: [], actions: [], output: null, input: null, defaults: {} },
         { id: 'music', label: 'Music', levels: [], actions: [], output: null, input: null, defaults: {} }],
-        spotifyToken: null, spotifyDevice: null, mixerExecutable: null, mixerLibrary: null, spotifyClientId: null, spotifyRefreshToken: null },
+        spotifyToken: null, spotifyDevice: null, mixerExecutable: null, mixerLibrary: null, spotifyClientId: null, spotifyRefreshToken: null,
+        plexUrl: null, plexToken: null, plexPlayerUrl: 'http://127.0.0.1:32500' },
       deviceSerial: null, adbPath: null,
       weather: { city: 'Tallinn', lat: 59.437, lon: 24.745, unit: 'celsius', model: '' },
       night: { enabled: false, start: '00:30', end: '07:30', brightness: 0.02 },
@@ -111,6 +113,9 @@
   const isObs = (type) => type === 'obs' || type.startsWith('obs-');
   // like AgentConfig.Widgets(enabledPagesOnly: true): what may control the computer comes from enabled pages only
   const shownWidgets = (c) => widgets({ ...c, pages: (c.pages || []).filter((p) => p.enabled !== false) });
+  const dcControl = (c) => shownWidgets(c).some((w) => w.type === 'discord' && w.options?.control === true); // DiscordMonitor.WidgetControl
+  const dcShare = (c) => c.discord?.screenShare === true && dcControl(c); // DiscordMonitor.ShareWanted
+  const dcChat = (c) => c.discord?.chat === true && shownWidgets(c).some((w) => w.type === 'discord'); // DiscordMonitor.ChatWanted
   const feedsCanOpen = (c) => shownWidgets(c).some((w) => w.type === 'feeds' && w.options?.open === true);
 
   // What the agent sends to a phone (AgentConfig.ToPublic): no commands, keys, tokens or what a rule matches on.
@@ -228,7 +233,7 @@
   let muteKeys = ['mute']; // ids of the shortcuts whose command is builtin:mute; their state is the computer's
 
   // made-up OBS: streaming for a while, buttons and scenes work
-  const dc = { muted: false, deaf: false, in: 'c1', noteAt: now() - 60000 }; // a fixed time, as the agent's notifications have
+  const dc = { muted: false, deaf: false, in: 'c1', sharing: null, chatIn: null, chatSeen: false, noteAt: now() - 60000 }; // a fixed time, as the agent's notifications have
   const obs = { streamingSince: now() - 754e3, recordingSince: 0, paused: false, scene: 'Desk', mic: false };
   function obsState() {
     return { enabled: true, control: true, snapshot: {
@@ -352,6 +357,12 @@
     ['f5', 'Ten keyboard shortcuts that save an hour a week', 'Tech news', 240],
     ['f6', 'Inside the factory that still makes film cameras', 'Hackaday', 420],
   ].map(([id, title, source, min]) => ({ id, title, source, published: now() - min * 60_000, openable: true }));
+  // made-up words for the made-up first song, one line every few seconds (the Synced lyrics widget)
+  const DEMO_LYRICS = [[0, ''], [8, 'Wires hum beneath the city glow'], [14, 'Every signal finds the way back home'], [21, 'Midnight circuit, keep me running'],
+    [28, 'Static lights are slowly coming'], [36, ''], [44, 'Tracing streets in amber and in blue'], [51, 'Every window flickers into view'],
+    [58, 'Midnight circuit, hold the current'], [65, 'Hearts in phase and nothing distant'], [73, 'Ooh, the line is open'], [80, 'Ooh, the night is spoken'],
+    [88, ''], [96, 'Low tide lights across the harbour wall'], [103, 'Echoes answer every time I call'], [110, 'Midnight circuit, keep me running'],
+    [117, 'Static lights are slowly coming'], [125, 'Midnight circuit'], [132, 'Keep me running'], [140, '']];
   // "pageId/widgetId", or "pageId/stackId:cardId" for a Smart Stack card (PanelWidgets.Find)
   const panelWidget = (c, key, type) => (c.pages || []).filter((p) => p.enabled !== false).flatMap((p) => (p.widgets || []).flatMap((w) =>
     // card-<i> counts every card, disabled ones too, like StackWidgets.Children and stack.js
@@ -421,6 +432,11 @@
   const spotifyTrack = (i) => ({ id: spotifyId(i), name: TRACKS[i][0], artist: TRACKS[i][1], image: 'https://i.scdn.co/image/demo' + i });
   const deckSpotify = () => ({ connected: true, current: spotifyTrack(player.track), playing: player.playing,
     queue: TRACKS.map((_, i) => i).filter((i) => i !== player.track).map(spotifyTrack) });
+  // Plex: queue item ids are digit strings, and a track carries no cover
+  const plexId = (i) => String(9000 + i);
+  const plexTrack = (i) => ({ id: plexId(i), name: TRACKS[i][0], artist: TRACKS[i][1] });
+  const deckPlex = () => ({ connected: true, current: plexTrack(player.track), playing: player.playing,
+    queue: TRACKS.map((_, i) => i).filter((i) => i !== player.track).map(plexTrack) });
   async function controlCommand(kind, q) {
     const id = q.get('id'), op = q.get('op'), value = q.has('value') ? +q.get('value') : null;
     const c = await config();
@@ -502,6 +518,18 @@
       else return refused;
       return json({ ok: true });
     }
+    if (path === '/api/controls/plex/state') return json(deckPlex());
+    if (path === '/api/controls/plex/check') return json(deckPlex());
+    if (path === '/api/controls/plex/playlists') return json([{ id: '12', name: 'Chill' }, { id: '13', name: 'Focus' }]);
+    if (path.startsWith('/api/controls/plex/action/') && method === 'POST') {
+      const action = path.split('/').pop();
+      if (action === 'play-queued') {
+        const i = TRACKS.findIndex((_, n) => plexId(n) === q.get('id'));
+        if (i < 0 || i === player.track) return json({ ok: false, error: 'That queue item is no longer available' });
+        Object.assign(player, { track: i, posMs: 0, at: now(), playing: true });
+      } else if (action !== 'playlist') return json({ ok: false, error: 'Unknown Plex control' });
+      return json({ ok: true });
+    }
     if (path === '/api/controls/spotify/state') return json(deckSpotify());
     if (path.startsWith('/api/controls/spotify/action/') && method === 'POST') {
       const action = path.split('/').pop();
@@ -531,6 +559,23 @@
       const w = pg && (pg.widgets || []).find((x) => x.id === widgetId);
       if (!w || w.type !== 'note') return json({ error: 'option not allowed' }, 400);
       w.options = { ...(w.options || {}), text: q.get('text') || '' };
+      store.set('pb-demo-config', c);
+      store.set('pb-demo-version', cfgVersion() + 1);
+      return json({ version: cfgVersion() });
+    }
+    if (path.startsWith('/api/widget/') && path.endsWith('/discord-favorite') && method === 'POST') {
+      const parts = path.split('/');
+      const c = await config();
+      const pg = (c.pages || []).find((p) => p.id === decodeURIComponent(parts[3]));
+      const w = pg && (pg.widgets || []).find((x) => x.id === decodeURIComponent(parts[4]));
+      if (!w || w.type !== 'discord') return json({ error: 'option not allowed' }, 400);
+      if (!/^\d+$/.test(q.get('version') || '')) return json({ error: 'version is missing' }, 400);
+      if (+q.get('version') !== cfgVersion()) return json({ error: 'changed' }, 409); // over newer settings, as in the agent
+      const key = q.get('kind') === 'guild' ? 'favGuilds' : q.get('kind') === 'channel' ? 'favChannels' : null;
+      if (!key) return json({ error: 'kind must be guild or channel' }, 400);
+      const id = q.get('id') || '';
+      const list = (w.options?.[key] || []).filter((x) => x !== id);
+      w.options = { ...(w.options || {}), [key]: q.get('on') === 'false' ? list : [...list, id] };
       store.set('pb-demo-config', c);
       store.set('pb-demo-version', cfgVersion() + 1);
       return json({ version: cfgVersion() });
@@ -592,11 +637,16 @@
     if (path === '/api/obs') { const c = await config(); return json({ ...obsState(), enabled: c.obs?.enabled !== false, control: widgets(c).some((w) => w.type === 'obs' && w.options?.control === true) }); }
     if (path === '/api/discord') {
       const c = await config();
-      return json({ enabled: true, control: widgets(c).some((w) => w.type === 'discord' && w.options?.control === true), snapshot: {
+      // who is in Lounge: only when a widget that shows channels wants it, as the agent does (DiscordFavorites.WantedRooms)
+      const lounge = shownWidgets(c).some((w) => w.type === 'discord' && w.options?.channels !== false
+        && ((w.options?.favChannels || []).includes('c3') || ((w.options?.favGuilds || []).includes('g1') && !(w.options?.favChannels || []).includes('c1'))));
+      return json({ enabled: true, share: dcShare(c), chat: dcChat(c), chatUnread: dcChat(c) && !dc.chatSeen, control: c.discord?.allowControl === true || dcControl(c), widgetControl: dcControl(c), snapshot: {
         connected: true, error: null, user: 'demo', muted: dc.muted, deafened: dc.deaf, channelId: dc.in, channelName: dc.in ? 'Game night' : null, channelKind: dc.in ? 'voice' : null,
         inputMode: dc.ptt ? 'PUSH_TO_TALK' : 'VOICE_ACTIVITY', pttKey: true,
         members: dc.in ? [{ id: '1', name: 'demo', muted: dc.muted, deafened: dc.deaf }, { id: '2', name: 'Ada', muted: false, deafened: false, speaking: Math.floor(now() / 1500) % 2 === 0 }, { id: '3', name: 'Linus', muted: true, deafened: false }] : [],
-        channels: [{ id: 'c1', name: 'Game night', guild: 'Friends' }, { id: 'c2', name: 'Stand-up', guild: 'Work' }],
+        channels: [{ id: 'c1', name: 'Game night', guild: 'Friends', guildId: 'g1' }, { id: 'c3', name: 'Lounge', guild: 'Friends', guildId: 'g1',
+          people: lounge ? [{ id: '4', name: 'Grace', muted: false, deafened: false }, { id: '5', name: 'Alan', muted: true, deafened: false }] : null },
+          { id: 'c2', name: 'Stand-up', guild: 'Work', guildId: 'g2' }],
         notifications: [{ ts: dc.noteAt, title: 'Ada', body: 'are you joining?' }] } });
     }
     if (path === '/api/steam') return json({ enabled: true, snapshot: {
@@ -623,14 +673,69 @@
       }
       return DEMO_GAMES.some((g) => g[0] === q.get('id')) ? json({ ok: true }) : json({ error: 'That game is not installed', code: 'notinstalled' }, 400);
     }
+    // timed lyrics for the first made-up song, plain ones for the second, none for the third (LRCLIB is not asked)
+    if (path === '/api/lyrics') {
+      // the asking widget's own lookup option, like the agent (PanelWidgets.Find): another widget's does not count
+      if (panelWidget(await config(), q.get('widget'), 'lyrics')?.options?.lookup !== true) return json({ status: 'off' });
+      const [title, artist] = TRACKS[player.track];
+      const stamp = (s) => `[${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}.00]`;
+      if (player.track === 0) return json({ status: 'ok', title, artist, synced: DEMO_LYRICS.map(([s, l]) => `${stamp(s)} ${l}`).join('\n'), plain: DEMO_LYRICS.map((x) => x[1]).join('\n'), instrumental: false });
+      if (player.track === 1) return json({ status: 'ok', title, artist, synced: null, plain: DEMO_LYRICS.slice(1, 7).map((x) => x[1]).join('\n'), instrumental: false });
+      return json({ status: 'notfound', title, artist });
+    }
     if (path === '/api/steam/avatar') {
       const ada = q.get('id') === '76561198000000001';
       const letter = ada ? 'A' : 'L', fill = ada ? '#7c3aed' : '#2563eb';
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="48" fill="${fill}"/><text x="48" y="64" font-family="system-ui,sans-serif" font-size="48" font-weight="700" text-anchor="middle" fill="#fff">${letter}</text></svg>`;
       return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml' } });
     }
+    if (path === '/api/discord/share') {
+      // screen share (off unless discord.screenShare is on): a few running apps; only the game shares directly
+      if (!dcShare(await config())) return json({ enabled: false });
+      // the agent reads it as a bool: anything but true or false is refused, as ASP.NET does
+      if (q.has('apps') && !/^(true|false)$/i.test(q.get('apps'))) return json({}, 400);
+      return json({ enabled: true, ready: true, inCall: !!dc.in, active: !!dc.sharing, name: dc.sharing,
+        apps: /^true$/i.test(q.get('apps') || '') ? [{ pid: 4242, name: 'Space Racers' }, { pid: 77, name: 'Firefox' }, { pid: 91, name: 'Visual Studio Code' }] : null });
+    }
+    if (path.startsWith('/api/discord/share/') && method === 'POST') {
+      const c = await config();
+      const no = (code, error) => json({ error, code }, 400); // DiscordShareError
+      if (!dcControl(c)) return no('control', "controlling Discord is turned off in the widget's settings");
+      if (c.discord?.screenShare !== true) return no('off', 'screen share is turned off');
+      const a = path.slice(19);
+      if (a === 'stop') dc.sharing = null;
+      else if (!dc.in) return no('noCall', 'join a voice channel first');
+      else if (dc.sharing) return no('sharing', 'you are already sharing');
+      else if (a === 'pick') dc.sharing = 'Screen 1';
+      else if (a === 'app' && q.get('pid') === '4242') dc.sharing = 'Space Racers';
+      else if (a === 'app') return no('notDirect', 'Discord can\'t share this app directly: use "Choose on PC"');
+      else return no('failed', 'unknown action');
+      return json({ ok: true });
+    }
+    if (path === '/api/discord/chat') {
+      // read-only chat (off unless discord.chat is on): one server with two text channels, a few messages
+      if (!dcChat(await config())) return json({ enabled: false });
+      // the agent reads it as a bool: anything but true or false is refused, as ASP.NET does
+      if (q.has('picker') && !/^(true|false)$/i.test(q.get('picker'))) return json({}, 400);
+      const picker = /^true$/i.test(q.get('picker') || '');
+      if (!picker) dc.chatSeen = true;
+      const text = { t1: ['general', [['Ada', 'are you joining?'], ['Linus', 'in 5 min']]], t2: ['memes', [['Ada', 'look at this']]] };
+      const id = dc.chatIn ?? (dc.in ? 'c1' : null);
+      const msgs = id === null || picker ? [] : (text[id]?.[1] ?? [['Ada', 'hi from the call']]).map(([author, body], i) => ({ id: id + i, author, authorId: author, avatar: null, color: null, bot: false, text: body, ts: now() - (5 - i) * 60e3, attachments: 0, embed: null }));
+      return json({ enabled: true, ready: true, picker, voice: !dc.chatIn, callName: dc.in ? 'Game night' : null,
+        channel: id === null ? null : { id, name: text[id]?.[0] ?? 'Game night', guild: 'Friends', voice: !dc.chatIn }, messages: msgs,
+        servers: [{ id: 'g1', name: 'Friends', icon: null, unread: !dc.chatSeen }],
+        channels: picker && q.get('guild') === 'g1' ? [{ id: 't1', name: 'general', unread: !dc.chatSeen }, { id: 't2', name: 'memes', unread: false }] : null });
+    }
+    if (path === '/api/discord/chat/choose' && method === 'POST') { const ch = q.get('channel'); dc.chatIn = ch === 'voice' ? null : ch; return json({ ok: true }); }
+    if (path === '/api/discord/chat/open' && method === 'POST') {
+      const c = await config();
+      if (!dcControl(c)) return json({ error: "controlling Discord is turned off in the widget's settings" }, 400);
+      return dcChat(c) ? json({ ok: true }) : json({ error: 'the chat is turned off' }, 400);
+    }
     if (path.startsWith('/api/discord/') && method === 'POST') {
-      if (!allows(await config(), (t) => t === 'discord')) return json({ error: "controlling Discord is turned off in the widget's settings" }, 400);
+      const dcCfg = await config();
+      if (dcCfg.discord?.allowControl !== true && !dcControl(dcCfg)) return json({ error: "controlling Discord is turned off in the widget's settings and in Settings › General › Discord" }, 400);
       const a = path.slice(13);
       if (a === 'mute') dc.muted = !dc.muted; else if (a === 'deafen') dc.deaf = !dc.deaf; else if (a === 'inputmode') dc.ptt = !dc.ptt; else if (a === 'leave') dc.in = null; else if (a === 'join') dc.in = q.get('channel'); else return json({ error: 'unknown action' }, 400);
       return json({ ok: true });

@@ -3,10 +3,68 @@
 ## Unreleased
 
 **Widgets**
+- Discord: a large widget has larger mute, deafen and other buttons, member names and avatars, readable and easy to
+  hit on a phone on a stand. Sizes follow the widget's size; at the usual sizes nothing changes (#420,
+  [noswear922](https://github.com/noswear922)).
+
+**Agent**
+- Windows: the CPU temperature from LibreHardwareMonitor no longer drops out on a busy computer. The agent waited
+  only 600 ms for its answer and blanked the temperature for 30 s after each slow one; it now waits 2 s and keeps
+  the last reading through a couple of slow answers (#442, [joaoschlickmann](https://github.com/joaoschlickmann)).
+- macOS: Now playing names YouTube Music installed as a Chrome app, instead of showing the app's 32-letter ID; other
+  Chrome apps show as Chrome (#443, [collorjune-svg](https://github.com/collorjune-svg)).
+
+**Android app**
+- A mouse shared from the computer (Input Leaf with Deskflow or Barrier) can click, drag and long-press in the panel.
+  The main button now acts as a finger, so a drag also swipes between pages; the WebView ignored these mice's
+  clicks before. Plugging in or removing a keyboard (Input Leaf adds one each time the mouse arrives) no longer
+  restarts the panel (#425, [nonchita100](https://github.com/nonchita100)).
+
+## 0.9.28 — 2026-11-23
+
+Faster page switching (tap or slide along the page dots, a page bar with names, a Page buttons widget), Discord
+screen share and a read-only chat, Plex queue and playlists, a Steam library and synced lyrics.
+
+**Widgets**
 - Discord: a button switches Discord between **voice activity** and **push to talk**, keeping your push-to-talk key,
   delay and sensitivity. When push to talk is on but Discord has no key set (so nobody hears you), the widget says so.
   It follows the widget's **Control** option like the other buttons and uses the voice scope PhoneBox already asks
   for (#356, [AlberBM](https://github.com/AlberBM)).
+- Steam library: your installed Steam games with covers, favourites first, then the most recently played, and update
+  progress, read from Steam's own files with no API key, sign-in or network. Starting a game from the phone is a
+  per-widget option, off by default and asking first (#344, #361, [1Cellu](https://github.com/1Cellu)).
+- Synced lyrics: a widget next to Now playing shows the words of the song playing on the computer, the line being
+  sung lit as it plays. The lookup is off by default per widget; with it on, the agent asks LRCLIB (free, no account)
+  with the track's title, artist, album and length, once per song, and keeps the answers in memory only (#339, #378,
+  [1Cellu](https://github.com/1Cellu)).
+- Discord: star servers and voice channels on the phone to keep them at the top, and see who is in your favourite
+  voice channels. The agent reads the starred channels first, then those of favourite servers without starred ones,
+  at most 20 in all, and only while a Discord widget with **Channels** on is on an enabled page (#356, #364,
+  [AlberBM](https://github.com/AlberBM)).
+- Plex queue: a widget shows what a Plex Companion player such as Caldera Amp is playing and what comes next; tap a
+  track to play it. Set it up in **Settings › General › Control Deck › Plex music control** (server address, token
+  and player address, with **Check Plex connection**). Off until a server and a token are entered; the token goes
+  only to your Plex server. The widget's requests are made only while an enabled page shows it; **Check Plex
+  connection** sends one check each time you press it (#379, #409, [snachodog](https://github.com/snachodog)).
+- Plex playlists: a widget starts a Plex playlist on the Plex player with one tap. In the layout editor its options
+  list the playlists on your Plex server to tick, so no playlist id has to be typed; with none ticked it shows every
+  Plex playlist control. A playlist starts only from a Plex playlists widget on an enabled page that shows it. The
+  Plex queue widget is now at least 4 × 4 and the playlists widget 3 × 3, so their text isn't cut off (#379, #414,
+  [snachodog](https://github.com/snachodog)).
+- Discord: start and stop a screen share from the phone. The widget's share view lists the apps with a window on the
+  computer (names only, on Windows; elsewhere use the picker), or opens Discord's own picker there, and stops the
+  share. It has its own setting in **Settings › General › Discord** (**Start and stop Discord screen shares from the
+  phone**), off by default, and needs a Discord widget with **Control** on an enabled page. Discord asks to approve
+  PhoneBox again for the screen-share permission; declining it turns off only screen share (#356, #370,
+  [AlberBM](https://github.com/AlberBM)).
+- Page buttons: a new widget with one button per page (all of them, or the ones you tick), the page you are on
+  highlighted. Put it on the home page to use it as a launcher for the others.
+- Discord: a read-only chat in the widget, for the voice channel you're in or a text channel you pick, with a dot on
+  💬 when someone writes in a channel you opened there. It has its own switch in **Settings › General › Discord**,
+  off by default; Discord asks to approve PhoneBox again for reading messages. Message text stays in the agent's
+  memory and is never logged; **Open in Discord** needs the widget's **Control** (#356, #368, #429,
+  [AlberBM](https://github.com/AlberBM), tested against Discord by
+  [DushyantRajpurohit](https://github.com/DushyantRajpurohit)).
 
 **Agent**
 - Phone app updates: a phone that cannot take a streamed install (`splice failed: EINVAL`, seen with Android 15 on a
@@ -20,6 +78,15 @@
 - macOS: the CPU and RAM process lists show kernel_task and system processes such as WindowServer, locked against
   ending them like other protected processes. kernel_task's memory is the system's wired memory, an estimate rather
   than its own measurement (#388, [ajaybali9](https://github.com/ajaybali9)).
+- Discord: when Discord refuses the login with `Missing "redirect_uri"`, the message says where to add the redirect
+  (`http://127.0.0.1` under **OAuth2 › Redirects** in the Discord application) and that the switch needs **Save** off
+  and on again (#316, #380, [DushyantRajpurohit](https://github.com/DushyantRajpurohit)).
+- Quotas: a CodexBar poll that fails for a moment (Cursor's session can't be read from the background on macOS) no
+  longer blanks the Cursor ring; the last good reading stays for up to 6 hours, without limits that have reset since,
+  and a refresh polls CodexBar again at once (#398, [ajaybali9](https://github.com/ajaybali9)).
+- Linux: the cover art of music playing in Chrome, Brave, Edge or Chromium shows on the phone. These browsers save it
+  to a temporary file with no image extension, which the agent refused (#427, #428,
+  [sanjai4334](https://github.com/sanjai4334)).
 
 **Android app**
 - A request to the agent that fails (a timeout, a dropped cable) now closes its connection at once instead of
@@ -38,10 +105,26 @@
   example the computer is off or asleep). It ends when the agent answers again, unless the scheduled night screen is
   on anyway. The **Wake the PC** button stays reachable over it (#347, #357,
   [CrippledHelix](https://github.com/CrippledHelix)).
+- Translations: about 110 machine-translated labels that said something else entirely are corrected in 20 languages.
+  For example, the Turkish rule template "🌅 Workday mornings → daily page" named a volleyball player, "Box 4-4-4-4"
+  breathing read 4-4-4-3 in most languages, and Russian "🔇 Mute" said "Lock".
+- Translations: the Power controls, Push to talk, virtual desktop, Lock and Display off buttons, the panic button, the
+  trackpad hint, the Stop buttons, the Sun & moon, Moon and Battery care titles and the GPU chips were English in every
+  language; they are translated now, and in Portuguese (Brazil) also the moon phases and the Control Deck states (#415,
+  [rsiqueira01](https://github.com/rsiqueira01)).
+- Page dots: a tap on a dot goes straight to its page, and sliding a finger along the dots names the page under it
+  at the top and opens it when you let go. The current dot, or the new grid button next to the dots, opens the
+  overview of all pages; holding the dots still pauses page switching.
+- Page bar: **Settings › General › Display › Page navigation** can show the page dots as a bar of buttons with each
+  page's icon and name, at the bottom or down the left or right edge. **Page bar when you touch the dots** opens it
+  over the page and closes it again after a few seconds; **Page bar, always shown** gives it its own strip of the
+  screen. The dots stay the default.
 
 **Tools**
 - `tools/demo-server.py` refuses a chunked request body (411) and closes the connection, instead of answering without
   the body and reading it as the next request.
+- The UI tests' web server accepts many connections at once, so the suite no longer fails with refused connections
+  when it runs with several workers on Windows (#405, [DushyantRajpurohit](https://github.com/DushyantRajpurohit)).
 
 **Languages**
 - The weather line no longer shows stray English ("weather condition", "weather forecast") after the condition, and
@@ -49,6 +132,9 @@
   and Ukrainian ("Clear" no longer reads as "Delete", "Showers" as a bathroom shower). A few other broken strings in
   Hindi, Japanese, Korean, Russian, Thai and Ukrainian are fixed, and the release check now catches English left-overs,
   raw bytes and empty translations (#358, [Yura-Kondratiuk](https://github.com/Yura-Kondratiuk)).
+- Arabic: a native speaker went over the whole translation, and the calendar's weekday headings now follow the
+  panel's language in every language instead of always being English (#376,
+  [ahmedalnimr](https://github.com/ahmedalnimr)).
 
 ## 0.9.27 — 2026-11-21
 

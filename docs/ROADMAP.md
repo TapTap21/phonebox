@@ -37,11 +37,6 @@ people who proposed or prototyped something are credited in the [changelog](../C
   General, all on by default, that the Clock's status line, Quotas and the Quota ring's picker follow unless a widget
   sets its own providers.
 
-- **More of Discord on the panel** ([#356](https://github.com/ersinkoc/phonebox/issues/356)), in separate pull
-  requests: a Voice Activity / Push-to-Talk toggle; favourite servers and channels picked on the phone; who is in each
-  voice channel; a global **Allow Discord control** setting (off by default) for custom widgets and shortcuts. Later,
-  each behind its own switch, off by default and kept in memory only: a read-only chat tab and unread dots
-  (`messages.read`), and screen sharing (`rpc.screenshare.*`).
 - **Phone flashlight from the night screen** ([#369](https://github.com/ersinkoc/phonebox/issues/369)): a torch icon,
   off by default, that turns on the phone's flash through Android's `CameraManager.setTorchMode` (no camera
   permission) or fills the screen with white at full brightness; it turns off with a tap, after a set time, or when
@@ -50,9 +45,9 @@ people who proposed or prototyped something are credited in the [changelog](../C
   an opt-in quota source, off by default, that runs `ai-usagebar usage --json` as a fixed command without a shell,
   with a timeout and an output cap, and shows accounts such as `claude@personal` and `claude@work` as separate cards.
   When it fails, the card says so; it never falls back to the built-in readers.
-- **Plex queue and playlists** ([#379](https://github.com/ersinkoc/phonebox/issues/379)) for a Plex Companion player
-  such as Caldera Amp, off by default, in two pull requests: first the settings, the connection and a queue widget,
-  then playlists. The token goes only to the Plex server, and the phone sends ids only.
+- **Plex playlists** ([#379](https://github.com/ersinkoc/phonebox/issues/379)), the second of the two pull requests:
+  a playlist action, a playlist picker and a Plex playlists widget, on top of the Plex queue widget (#409). The token
+  goes only to the Plex server, and the phone sends ids only.
 - **A white theme and an e-ink option** ([#383](https://github.com/ersinkoc/phonebox/issues/383)), in two pull
   requests: a pure white theme, then an "E-ink screen" option, off by default, with no pulsing or animations and a
   slower refresh for fast widgets.
@@ -87,6 +82,10 @@ Agreed in principle, not being built in-house. Say so on the issue before starti
   the timed lyric of the current track and follows the playback position. The agent looks the track up on LRCLIB
   (title, artist, album, duration) only when the user turns the lookup on and only while such a widget is on an enabled
   page; results stay in memory, and the phone never contacts LRCLIB.
+- **CPU power on the CPU tile** ([#442](https://github.com/ersinkoc/phonebox/issues/442)): the package power next
+  to the CPU temperature (`92°C · 42 W`) and a CPU POWER chart, like the GPU tile has. On Windows it is in the same
+  LibreHardwareMonitor `data.json` the agent already reads; on Linux it could come from RAPL
+  (`/sys/class/powercap/intel-rapl:0/energy_uj`) where readable.
 - **A larger device switcher** ([#340](https://github.com/ersinkoc/phonebox/issues/340)): bigger touch targets for the
   computers in the all-pages overview, each with an icon (emoji or uploaded picture) and a colour set per computer.
 
@@ -100,8 +99,8 @@ Agreed in principle, not being built in-house. Say so on the issue before starti
   ([#215](https://github.com/ersinkoc/phonebox/issues/215)): needs a documented Antigravity hook that waits for an
   answer, like the one Claude Code has. A permission gate built on undocumented internals could approve the wrong
   thing after an Antigravity update.
-- **Power standby on Android 8+** ([#30](https://github.com/ersinkoc/phonebox/issues/30)): pull request
-  [#32](https://github.com/ersinkoc/phonebox/pull/32) was closed; a new pull request built on its review is welcome.
+- **Power standby on Android 8+** ([#30](https://github.com/ersinkoc/phonebox/issues/30)): continued from
+  [#32](https://github.com/ersinkoc/phonebox/pull/32) in the draft [#430](https://github.com/ersinkoc/phonebox/pull/430).
 
 ## Waiting on a report
 

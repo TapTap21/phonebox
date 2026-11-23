@@ -18,6 +18,8 @@ async function open(page) {
   await page.goto('/panel/');
   const key = (i) => page.locator('[data-id="hold-test"] .w-button').nth(i).locator('.key');
   await expect(key(0)).toBeVisible();
+  // the default night hours apply until the stored settings do, and a held mouse button doesn't wait for them to go
+  await expect(page.locator('body')).not.toHaveClass(/night/);
   // the demo answers in the page (no network request), so the runs are recorded around its fetch
   await page.evaluate(() => {
     const original = window.fetch; window.__runs = [];

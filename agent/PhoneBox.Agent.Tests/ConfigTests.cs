@@ -353,6 +353,8 @@ public class LanTests
     [InlineData("/api/steam/launch", true)]
     [InlineData("/api/steam/library/x", false)]
     [InlineData("/api/steam/games", false)]
+    [InlineData("/api/lyrics", true)]
+    [InlineData("/api/lyrics/search", false)]
     [InlineData("/api/push/temperature", true)]
     [InlineData("/api/settings", false)]
     [InlineData("/api/pair", false)]
@@ -623,6 +625,32 @@ public class Hour12ConfigTests
             var prop = doc.RootElement.GetProperty("display").GetProperty("hour12");
             Assert.Equal(expectedWrittenKind, prop.ValueKind);
             if (expectedWrittenKind == JsonValueKind.String) Assert.Equal("auto", prop.GetString());
+        }
+        finally
+        {
+            File.Delete(path);
+            File.Delete(path + ".bak");
+        }
+    }
+}
+
+public class PageBarConfigTests
+{
+    [Theory]
+    [InlineData("{}", "dots", "bottom")]
+    [InlineData("""{"display":{"pageBar":"bar","pageBarSide":"left"}}""", "bar", "left")]
+    [InlineData("""{"display":{"pageBar":"auto","pageBarSide":"right"}}""", "auto", "right")]
+    [InlineData("""{"display":{"pageBar":"sideways","pageBarSide":"top"}}""", "dots", "bottom")]
+    [InlineData("""{"display":{"pageBar":null,"pageBarSide":null}}""", "dots", "bottom")]
+    public void APageBarSettingThePanelDoesNotKnowIsSavedAsTheDefault(string inputJson, string bar, string side)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"phonebox-pagebar-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(path, "{}");
+            var store = new ConfigStore(path);
+            Assert.Null(store.Save(inputJson));
+            Assert.Equal((bar, side), (store.Get().Display.PageBar, store.Get().Display.PageBarSide));
         }
         finally
         {

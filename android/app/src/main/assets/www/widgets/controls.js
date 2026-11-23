@@ -33,7 +33,8 @@ export async function deckCommand(kind, values = {}) {
   }
   return result;
 }
-const fail = error => toast(error?.message || tp('The computer did not answer'), 'err');
+// the Plex page-gate messages are translated on every path, also when a deck control (a playlist) is refused
+const fail = error => toast(plexText(error?.message) || tp('The computer did not answer'), 'err');
 const button = (label, click, name = label) => {
   const b = h('button', 'deck-button', label); b.type = 'button'; b.setAttribute('aria-label', name);
   b.onclick = async () => { haptic(); b.disabled = true; try { await click(); } catch (e) { fail(e); } finally { b.disabled = false; } };
@@ -47,7 +48,7 @@ function reconcile(root, nodes) {
   nodes.forEach((node, index) => { if (root.children[index] !== node) root.insertBefore(node, root.children[index] || null); });
   [...root.children].filter(node => !nodes.includes(node)).forEach(node => node.remove());
 }
-function empty(root, text) { root.replaceChildren(h('div', 'deck-empty', text)); }
+function empty(root, text) { root.replaceChildren(h('div', 'deck-empty', tp(text))); }
 function slider(label, send, max = 100) {
   const input = h('input', 'deck-slider'); input.type = 'range'; input.min = 0; input.max = max; input.step = 1;
   input.setAttribute('aria-label', label);
@@ -148,8 +149,10 @@ function chooser(box, options, which) {
   };
 }
 
+const holdLabel = (power) => (power === 'sleep' ? tp('Hold: sleep') : power === 'restart' ? tp('Hold: restart')
+  : power === 'shutdown' ? tp('Hold: shutdown') : tp('Hold to talk'));
 function hold(box, options, power = null) {
-  const b = h('button', 'deck-hold', power ? `Hold: ${power}` : 'Hold to talk'); b.type = 'button';
+  const b = h('button', 'deck-hold', holdLabel(power)); b.type = 'button';
   b.disabled = true;
   const status = h('div', 'deck-caption', power ? tp('Hold for 2 seconds') : tp('Release to restore the microphone')); box.append(b, status);
   let held = false, lease = null, timer = 0, renewal = 0, device = null;
@@ -218,7 +221,7 @@ const groups = {
   'display-profiles': ['display-profile'], 'focus-profile': ['focus', 'macro'],
   'meeting-controls': ['meeting'], 'discord-controls': ['discord'], 'meeting-profile': ['meeting', 'macro'],
   'task-runner': ['task'], 'dev-servers': ['server'], services: ['service'], 'workflow-runner': ['workflow'], 'script-pad': ['task', 'shortcut'],
-  soundboard: ['sound'], radio: ['radio'], playlists: ['playlist'], 'audio-routing': ['audio-route'],
+  soundboard: ['sound'], radio: ['radio'], playlists: ['playlist'], 'plex-playlists': ['plex-playlist'], 'audio-routing': ['audio-route'],
   'external-mixer': ['mixer', 'mixer-mute'], 'midi-pad': ['midi'], 'osc-pad': ['osc'],
 };
 function actionsView(box, options, type) {
@@ -232,12 +235,12 @@ function actionsView(box, options, type) {
     const key = JSON.stringify(items); if (key === signature) return; signature = key;
     if (!items.length) { empty(grid, 'Assign controls in the computer’s Control Deck settings'); return; }
     grid.replaceChildren(...items.map(item => {
-      const label = h('span', '', item.name), state = h('small', '', item.state || tp('Ready'));
+      const label = h('span', '', item.name), state = h('small', '', tp(item.state || 'Ready'));
       const b = button('', async () => { await deckCommand(item.kind === 'profile' ? 'profile' : 'action', { id: item.id, op: item.kind === 'radio' ? 'toggle' : (type === 'app-dock' ? 'focus' : '') }); signature = ''; });
       b.disabled = item.available === false;
       b.append(label, state);
-      if (type === 'dev-servers') return h('div', 'deck-task', b, button('Stop', () => deckCommand('action', { id: item.id, op: 'stop' }), 'Stop ' + item.name));
-      if (type === 'soundboard') return h('div', 'deck-task', b, button('Stop', () => deckCommand('sound-stop', { id: item.id }), 'Stop ' + item.name));
+      if (type === 'dev-servers') return h('div', 'deck-task', b, button(tp('Stop'), () => deckCommand('action', { id: item.id, op: 'stop' }), tp('Stop') + ' ' + item.name));
+      if (type === 'soundboard') return h('div', 'deck-task', b, button(tp('Stop'), () => deckCommand('sound-stop', { id: item.id }), tp('Stop') + ' ' + item.name));
       return b;
     }));
   };
@@ -577,9 +580,9 @@ export function registerDeckWidget(type, title, mode = type) {
       else if (mode === 'ptt') component = hold(box, o);
       else if (mode === 'listen') component = listening(box);
       else if (['remote', 'seek', 'modes'].includes(mode)) render = mediaView(box, o, mode);
-      else if (mode === 'panic') box.append(button('Mute audio + microphones', () => deckCommand('panic')));
-      else if (mode === 'desktops') box.append(button('← Desktop', () => deckCommand('desktop', { value: -1 })), button('Desktop →', () => deckCommand('desktop', { value: 1 })));
-      else if (mode === 'system') box.append(button('Lock', () => deckCommand('lock')), button('Display off', () => deckCommand('monitor-off')));
+      else if (mode === 'panic') box.append(button(tp('Mute audio + microphones'), () => deckCommand('panic')));
+      else if (mode === 'desktops') box.append(button(tp('← Desktop'), () => deckCommand('desktop', { value: -1 })), button(tp('Desktop →'), () => deckCommand('desktop', { value: 1 })));
+      else if (mode === 'system') box.append(button(tp('Lock'), () => deckCommand('lock')), button(tp('Display off'), () => deckCommand('monitor-off')));
       else if (mode === 'power') {
         const group = h('div', 'deck-power-grid'); box.append(group);
         const components = ['sleep', 'restart', 'shutdown'].map(action => { const item = h('div', 'deck-power-item'); group.append(item); return hold(item, o, action); });
@@ -639,7 +642,7 @@ W['meeting-status'] = { needs: ['state', 'push'], create: (box, ctx) => W.onair.
 
 async function integrationCommand(path, values = {}) {
   const result = await api('/controls/' + path + '?' + new URLSearchParams(values), 'POST', 20000);
-  if (!result.ok) throw new Error(result.error || tp('Integration refused this control'));
+  if (!result.ok) throw new Error((path.startsWith('plex/') ? plexText(result.error) : result.error) || tp('Integration refused this control'));
   return result;
 }
 function integrationWidget(type, title, endpoint, create) {
@@ -653,9 +656,9 @@ function integrationWidget(type, title, endpoint, create) {
         data = await api('/controls/' + endpoint, 'GET', 20000); if (!alive) return;
         if (root.contains(document.activeElement) && document.activeElement.matches('input,textarea,select') || root.matches(':active') || root.querySelector(':active')) return;
         const key = JSON.stringify(data); if (key === signature) return; signature = key;
-        if (!data.connected) { empty(root, data.error || tp('Connect this integration in desktop settings')); return; }
+        if (!data.connected) { empty(root, (endpoint.startsWith('plex/') ? plexText(data.error) : data.error) || tp('Connect this integration in desktop settings')); return; }
         root.replaceChildren();
-        create(root, data, (action, args) => integrationCommand(endpoint === 'obs' ? 'obs/' + action : 'spotify/action/' + action, args).then(()=>{signature='';}), o);
+        create(root, data, (action, args) => integrationCommand(endpoint === 'obs' ? 'obs/' + action : endpoint.startsWith('plex/') ? 'plex/action/' + action : 'spotify/action/' + action, args).then(()=>{signature='';}), o);
       } catch (error) { if (alive) empty(root, error.message || tp('Integration is unavailable')); }
       finally { busy = false; }
     }, destroy() { alive = false; } };
@@ -724,6 +727,27 @@ integrationWidget('media-queue', 'Spotify queue', 'spotify/state', (root,data,se
     root.append(b);
   }
 });
+// Agent error text for the Plex widgets: the two page-gate messages are translated; any other text is shown as the agent sent it.
+const plexText = text => text === 'Add a Plex widget to an enabled page' ? tp('Add a Plex widget to an enabled page') : text === 'Add a Plex playlists widget to an enabled page' ? tp('Add a Plex playlists widget to an enabled page') : text;
+// Plex music (Caldera Amp): the same queue as above without covers. The agent passes on only an id, a name and an artist.
+integrationWidget('plex-queue', 'Plex queue', 'plex/state', (root,data,send)=>{
+  const text = (name, artist) => h('div','sq-txt', h('div','sq-name',name || ''), artist ? h('div','sq-artist',artist) : null);
+  const cur = data.current;
+  root.classList.add('sq');
+  root.append(h('div','sq-now' + (data.playing ? ' playing' : ''),
+    h('div','sq-txt', h('div','sq-label', t(cur ? 'w.nowPlaying' : 'w.nothingPlaying')),
+      cur ? h('div','sq-name',cur.name || '') : null, cur?.artist ? h('div','sq-artist',cur.artist) : null)));
+  // a connected answer can still carry a reason for an empty queue (the player is playing from another server)
+  if (!data.queue?.length) { root.append(h('div','deck-empty',(data.error ? plexText(data.error) : '') || t('w.queueEmpty'))); return; }
+  root.append(h('div','sq-head',t('w.upNext')));
+  for (const item of data.queue) {
+    const b = h('button','sq-item', text(item.name, item.artist));
+    b.type = 'button';
+    b.setAttribute('aria-label', item.name + (item.artist ? ' · ' + item.artist : ''));
+    b.onclick = () => { haptic(); send('play-queued',{id:item.id}).catch(fail); };
+    root.append(b);
+  }
+});
 integrationWidget('media-favorites', 'Spotify favorites', 'spotify/state', (root,data,send)=>{
   root.append(h('div','deck-track',data.current?.name || t('w.nothingPlaying')),h('div','deck-caption',data.current?.artist || ''));
   const b=button('Save to library',()=>send('favorite'));b.disabled=!data.current?.id;root.append(b);
@@ -770,10 +794,10 @@ W.trackpad = {
     const surface = h('div', 'deck-trackpad-surface',
       h('div', 'deck-trackpad-icon', icon(controlEnabled ? 'mouse' : 'lock')),
       h('div', 'deck-trackpad-hint', !controlEnabled
-        ? 'Enable mouse control in widget settings'
+        ? tp('Enable mouse control in widget settings')
         : (scrollBar !== 'none'
-          ? 'Drag to move · Tap to click · Hold to drag · Bar or 2 fingers to scroll'
-          : 'Drag to move · Tap to click · Hold to drag · Two fingers to scroll'))
+          ? tp('Drag to move · Tap to click · Hold to drag · Bar or 2 fingers to scroll')
+          : tp('Drag to move · Tap to click · Hold to drag · Two fingers to scroll')))
     );
 
     let scrollBarEl = null;

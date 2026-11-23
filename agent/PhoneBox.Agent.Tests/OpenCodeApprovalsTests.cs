@@ -46,7 +46,9 @@ public sealed class OpenCodeApprovalsTests : IDisposable
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
         {
-            var url = req.RequestUri!.ToString();
+            // AbsoluteUri keeps the escaping the agent sent; ToString() would turn %20 back into a space, so a temp
+            // directory with a space in it (C:\Users\First Last\...) would never match the expected query
+            var url = req.RequestUri!.AbsoluteUri;
             lock (_lock) Calls.Add(req.Method.Method + " " + url);
             if (req.Method == HttpMethod.Post && url.Contains("/permission/") && url.EndsWith("/reply"))
             {

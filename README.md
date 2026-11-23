@@ -50,7 +50,7 @@ Windows, Linux and macOS. No root, PhoneBox account or cloud service required.</
 <sub>Example layouts with demo data.</sub></p>
 
 PhoneBox pairs a full-screen **Android app** with a small **desktop agent**. Build your panel in a browser-based
-visual editor: **127 widgets**, **30 templates**, multiple pages and a live preview. Connect several phones with
+visual editor: **131 widgets**, **30 templates**, multiple pages and a live preview. Connect several phones with
 their own layouts, or switch one phone between paired computers.
 
 ## What you can do
@@ -190,6 +190,7 @@ before you install it.
 | Add-on | What it does | What it sends outside the PC |
 |---|---|---|
 | [PhoneBox Games Tab](https://github.com/lucasaz/phonebox-games-tab) (Windows) | A Games page with live FPS, cover art and play time, through the push API and a Custom HTML widget | Store / Xbox apps' package names, with the Windows display language and region, to the Microsoft Store catalog (`displaycatalog.mp.microsoft.com`); the phone loads cover images from Microsoft's image servers and from Steam's, whose URL contains the game's Steam app ID |
+| [PhoneBox for GNOME](https://github.com/Gabrielmororo180/phonebox-gnome) (Linux, GNOME) | CPU and the Claude session quota in the GNOME top bar; a click opens the panel, with page tabs, right below it. Also works as a desktop widget | Nothing of its own; the panel it opens makes the same requests as on the phone, such as the weather from `api.open-meteo.com` (see [PRIVACY.md](PRIVACY.md)) |
 
 ## Security & privacy
 
