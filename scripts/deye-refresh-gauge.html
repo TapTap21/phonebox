@@ -1,0 +1,52 @@
+<style>
+  h1 { margin: 10px 12px 0; font-size: 3.5vh; letter-spacing: .1em; text-transform: uppercase; color: #aeb8c5; }
+  .dial { position: absolute; inset: 0; display: grid; place-items: center; }
+  progress, .ring { width: 62vmin; height: 62vmin; }
+  progress { position: absolute; opacity: 0; }
+  .ring {
+    border-radius: 50%;
+    background: conic-gradient(#2dd4bf var(--fill, 0%), #ffffff24 0);
+    -webkit-mask-image: radial-gradient(transparent 61%, black 62%);
+    mask-image: radial-gradient(transparent 61%, black 62%);
+  }
+  .reading { position: absolute; text-align: center; }
+  #remaining { display: block; font-size: 15vmin; font-weight: 650; font-variant-numeric: tabular-nums; }
+  #detail { color: #aeb8c5; font-size: 4vmin; }
+</style>
+<h1>DeyeCloud refresh</h1>
+<div class="dial">
+  <progress id="timer" max="120" aria-label="Time until next DeyeCloud check"></progress>
+  <div class="ring" aria-hidden="true"></div>
+  <div class="reading" aria-hidden="true">
+    <span id="remaining">—</span>
+    <span id="detail">Waiting for poller</span>
+  </div>
+</div>
+<script>
+  const timer = document.getElementById('timer');
+  const ring = document.querySelector('.ring');
+  const remaining = document.getElementById('remaining');
+  const detail = document.getElementById('detail');
+  let scheduled;
+  function render() {
+    const now = Date.now();
+    const data = scheduled && scheduled.expiresAt > now ? scheduled.data : null;
+    const seconds = data ? Math.max(0, Math.ceil((data.dueAt - now) / 1000)) : 0;
+    const status = !data ? 'Waiting for poller' : !seconds ? 'Checking…' : data.retry ? 'Until retry' : 'Until next check';
+    remaining.textContent = !data ? '—' : Math.floor(seconds / 60) + ':' + ('0' + seconds % 60).slice(-2);
+    detail.textContent = status;
+    if (data) {
+      timer.max = Math.max(1, Math.ceil(data.seconds));
+      timer.value = Math.min(timer.max, seconds);
+    } else {
+      timer.removeAttribute('value');
+    }
+    timer.setAttribute('aria-valuetext', seconds ? seconds + ' seconds remaining. ' + status : status);
+    ring.style.setProperty('--fill', data ? (timer.value / timer.max * 100) + '%' : '0%');
+  }
+  phonebox.on('push', items => {
+    scheduled = items['deye-next-poll'];
+    render();
+  });
+  setInterval(render, 250);
+</script>

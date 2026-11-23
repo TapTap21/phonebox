@@ -198,7 +198,16 @@ def main():
                 pass
         if args.once:
             return
-        time.sleep(delay)
+        wake_at = time.monotonic() + delay
+        try:
+            post(f"{PHONEBOX}/api/push/deye-next-poll?ttl={math.ceil(delay) + 60}", {
+                "dueAt": round((time.time() + delay) * 1000),
+                "seconds": delay,
+                "retry": delay > INTERVAL,
+            })
+        except (OSError, ValueError):
+            pass
+        time.sleep(max(0, wake_at - time.monotonic()))
 
 
 if __name__ == "__main__":
